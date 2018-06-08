@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<title>LibraryApp</title>
+        <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+	</head>
+	<body>
+
+    <section class="container h-100">
+        <section id="availableBooks">
+            <h2>Laenutamine</h2>
+            <table id="availableBooksTable" class="table">
+                <thead class="thead-light">
+                    <th>Pealkiri</th>
+                    <th>Kirjeldus</th>
+                    <th>Autor</th>
+                    <th>Aasta</th>
+                    <th>Isbn</th>
+                    <th></th>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+        <section id="unavailableBooks">
+            <h2>Tagastamine</h2>
+            <table id="unavailableBooksTable" class="table">
+                <thead class="thead-light">
+                    <th>Pealkiri</th>
+                    <th>Kirjeldus</th>
+                    <th>Autor</th>
+                    <th>Aasta</th>
+                    <th>Isbn</th>
+                    <th></th>
+                </thead>
+                <tbody></tbody>
+            </table>
+        </section>
+    </section>
+
+	<script>
+        var LibraryApp = function () {
+            var sendXMLHttpRequest = function(options) {
+                var oReq = new XMLHttpRequest();
+		        oReq.addEventListener("load", options.success);
+		        oReq.addEventListener("error", options.failure);
+		        oReq.open(options.method, options.url);
+		        oReq.setRequestHeader('Content-type', options.contentType);
+		        oReq.send(JSON.stringify(options.data));
+            };
+
+            var reqFailed = function(error) {
+                //Implement error handling logic here.
+			    console.log(error);
+		    };
+
+            var buildBookDataRow = function (book) {
+                var tableRow = document.createElement('tr');
+                tableRow.setAttribute('bookid', book.id);
+
+                tableRow.innerHTML =  '<td> ' + book.title +
+                       '</td><td>' + book.description +
+                       '</td><td>' + book.author +
+                       '</td><td>' + book.published +
+                       '</td><td>' + book.isbn + '</td>';
+
+                return tableRow;
+            };
+
+            var appendRowAndButtonWithEvents = function (book) {
+                var availableTableBody = document.querySelector('#availableBooksTable tBody'),
+                    unavailableTableBody = document.querySelector('#unavailableBooksTable tBody'),
+                    lendRetrieveButton = document.createElement('button'),
+                    tableRow = buildBookDataRow(book),
+                    tableCell;
+
+                lendRetrieveButton.setAttribute('bookid', book.id);
+                lendRetrieveButton.classList.add('btn', 'btn-primary');
+                tableCell = document.createElement('td');
+                tableCell.appendChild(lendRetrieveButton);
+                if (book.available) {
+                    lendRetrieveButton.addEventListener('click', lendBook);
+                    lendRetrieveButton.innerHTML = 'Laenuta';
+                    tableRow.appendChild(tableCell);
+                    availableTableBody.appendChild(tableRow);
+                } else {
+                    lendRetrieveButton.addEventListener('click', retrieveBook);
+                    lendRetrieveButton.innerHTML = 'Tagasta';
+                    tableRow.appendChild(tableCell);
+                    unavailableTableBody.appendChild(tableRow);
+                }
+            };
+
+            var setTableVisibility = function () {
+                var availableTableBody = document.querySelector('#availableBooksTable tBody'),
+                    unavailableTableBody = document.querySelector('#unavailableBooksTable tBody');
+
+                (availableTableBody.childNodes.length) ?
+                    document.querySelector('#availableBooks').style.display = 'block' :
+                    document.querySelector('#availableBooks').style.display = 'none';
+
+                (unavailableTableBody.childNodes.length) ?
+                    document.querySelector('#unavailableBooks').style.display = 'block' :
+                    document.querySelector('#unavailableBooks').style.display = 'none';
+            };
+
+            var changeBookLocation = function() {
+                var book = JSON.parse(this.responseText);
+
+                //Remove from previous location.
+                document.querySelector("tr[bookid='" + book.id + "']").remove();
+
+                //Attach to new location (Based on current availability).
+                appendRowAndButtonWithEvents(book);
+                setTableVisibility();
+            };
+
+            var lendBook = function (event) {
+                var bookId = event.target.getAttribute('bookid');
+
+                sendXMLHttpRequest({
+                    'method': 'PUT',
+                    'url': 'books/' + bookId,
+                    'contentType': 'application/json',
+                    'data': {"available": false},
+                    'success': changeBookLocation,
+                    'failure': reqFailed
+                });
+            };
+
+            var retrieveBook = function (event) {
+                var bookId = event.target.getAttribute('bookid');
+
+                sendXMLHttpRequest({
+                    'method': 'PUT',
+                    'url': 'books/' + bookId,
+                    'contentType': 'application/json',
+                    'data': {"available": true},
+                    'success': changeBookLocation,
+                    'failure': reqFailed
+                });
+            };
+
+            var buildBookList = function() {
+                var books = JSON.parse(this.responseText);
+                for (i = 0; i < books.length; i++) {
+                    appendRowAndButtonWithEvents(books[i]);
+                }
+
+                setTableVisibility();
+            };
+
+            var getBooks = function() {
+                sendXMLHttpRequest({
+                    'method': 'GET',
+                    'url': 'books',
+                    'contentType': 'application/json',
+                    'data': {},
+                    'success': buildBookList,
+                    'failure': reqFailed
+                });
+            };
+
+            var init = function (options) {
+                getBooks();
+            };
+
+            return {
+                'init': init
+            }
+        };
+
+        window.addEventListener('load', function () {
+            var libraryApp = new LibraryApp();
+            libraryApp.init();
+        });
+	</script>
+
+	</body>
+
+</html>
